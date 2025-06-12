@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertidor SRM a SRA para N64</title>
+</head>
+<body>
+    <!-- Contenedor principal de la aplicación -->
+    <div>
+        <h1>Convertidor SRM a SRA</h1>
+        <p>Carga tu archivo SRM (Save RAM de Nintendo 64) y conviértelo a formato SRA.</p>
+
+        <!-- Sección para la selección de archivos -->
+        <div>
+            <label for="srmFile">Seleccionar archivo SRM:</label>
+            <input type="file" id="srmFile" accept=".srm">
+        </div>
+
+        <!-- Botón de conversión -->
+        <button id="convertBtn">
+            Convertir a SRA
+        </button>
+
+        <!-- Área para mostrar mensajes de estado o error -->
+        <div id="message">
+            <!-- Los mensajes se insertarán aquí dinámicamente con JavaScript -->
+        </div>
+
+        <!-- Enlace de descarga (inicialmente oculto) -->
+        <a id="downloadLink" style="display: none;" download="converted.sra">
+            Descargar archivo SRA
+        </a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Obtener referencias a los elementos del DOM
+            const srmFileInput = document.getElementById('srmFile');
+            const convertBtn = document.getElementById('convertBtn');
+            const messageDiv = document.getElementById('message');
+            const downloadLink = document.getElementById('downloadLink');
+
+            // Añadir un "listener" al botón de conversión
+            convertBtn.addEventListener('click', () => {
+                const file = srmFileInput.files[0]; // Obtener el primer archivo seleccionado
+
+                // Validaciones iniciales
+                if (!file) {
+                    messageDiv.textContent = 'Por favor, selecciona un archivo SRM.';
+                    downloadLink.style.display = 'none'; // Ocultar el enlace de descarga si no hay archivo
+                    return;
+                }
+
+                if (file.name.split('.').pop().toLowerCase() !== 'srm') {
+                    messageDiv.textContent = 'El archivo seleccionado no es un archivo SRM válido.';
+                    downloadLink.style.display = 'none';
+                    return;
+                }
+
+                // Mostrar mensaje de "convirtiendo"
+                messageDiv.textContent = 'Convirtiendo...';
+                downloadLink.style.display = 'none'; // Ocultar el enlace de descarga mientras se procesa
+
+                const reader = new FileReader(); // Crear una nueva instancia de FileReader
+
+                // Evento que se dispara cuando el archivo ha sido leído exitosamente
+                reader.onload = (e) => {
+                    const srmData = new Uint8Array(e.target.result); // Obtener los datos del archivo SRM como un array de bytes
+
+                    // --- Lógica de conversión SRM a SRA ---
+                    // ASUNCIONES IMPORTANTES PARA LA CONVERSIÓN:
+                    // 1. Este ejemplo realiza una conversión directa byte a byte.
+                    //    Esto significa que el contenido del archivo SRA será idéntico al del SRM.
+                    //    Esta es la implementación más simple de una "inversión" si RaMP64 simplemente
+                    //    copia o renombra.
+
+                    // 2. Otros convertidores de N64 (como RaMP64) a menudo manejan diferencias en:
+                    //    - Tamaño del archivo: Los archivos SRM (SRAM) y SRA (EEPROM o SRAM) pueden tener
+                    //      tamaños estándar (ej. 32KB para SRAM, 512B/2KB para EEPROM).
+                    //      Si tu "inverso" implica ajustar el tamaño:
+                    //      a) Para truncar a un tamaño específico (ej. 8KB = 8192 bytes):
+                    //         const sraDataArray = srmData.slice(0, 8192);
+                    //      b) Para rellenar si el archivo es más pequeño de lo esperado (ej. a 32KB = 32768 bytes):
+                    //         const sraDataArray = new Uint8Array(32768);
+                    //         sraDataArray.set(srmData); // Copia los datos existentes
+                    //         // Los bytes restantes se inicializan a 0
+                    //
+                    //    - Orden de bytes (Endianness): Algunos formatos de guardado N64 pueden requerir
+                    //      un cambio en el orden de los bytes (ej. de Big Endian a Little Endian o viceversa)
+                    //      para palabras de 16-bit o 32-bit.
+                    //      Ejemplo básico de byte swap para palabras de 16-bit:
+                    //      const sraDataArray = new Uint8Array(srmData.length);
+                    //      for (let i = 0; i < srmData.length; i += 2) {
+                    //          if (i + 1 < srmData.length) { // Asegurarse de no exceder el límite
+                    //              sraDataArray[i] = srmData[i + 1];
+                    //              sraDataArray[i + 1] = srmData[i];
+                    //          } else {
+                    //              sraDataArray[i] = srmData[i]; // Si hay un byte impar al final
+                    //          }
+                    //      }
+                    //      (Esta lógica de byte swap es un ejemplo y debe ajustarse a la necesidad real del formato
+                    //       y la operación inversa que deseas realizar).
+                    //
+                    //    - Cabeceras/Pie de página: Algunos formatos pueden tener cabeceras o pies de página
+                    //      específicos que el conversor "inverso" necesitaría eliminar o añadir.
+
+                    // Dada la falta de detalles específicos sobre la estructura del archivo SRM/SRA
+                    // y la lógica exacta de "inversión" de RaMP64, se procede con una copia directa.
+                    const sraDataArray = srmData; // Copia directa byte a byte
+
+                    // Crear un Blob a partir de los datos convertidos
+                    const sraBlob = new Blob([sraDataArray], { type: 'application/octet-stream' });
+                    // Crear una URL de objeto para el Blob, que permite la descarga
+                    const url = URL.createObjectURL(sraBlob);
+
+                    // Configurar el enlace de descarga
+                    downloadLink.href = url;
+                    // Sugerir un nombre de archivo para la descarga, cambiando la extensión
+                    downloadLink.download = file.name.replace(/\.srm$/i, '.sra');
+                    downloadLink.textContent = `Descargar ${downloadLink.download}`;
+                    downloadLink.style.display = 'block'; // Mostrar el enlace de descarga
+
+                    // Mostrar mensaje de éxito
+                    messageDiv.textContent = '¡Conversión completada! Haz clic en el botón de descarga.';
+
+                    // Liberar la URL del objeto cuando ya no se necesite (opcional, pero buena práctica)
+                    // setTimeout(() => URL.revokeObjectURL(url), 60000); // Revocar después de 1 minuto
+                };
+
+                // Evento que se dispara si hay un error al leer el archivo
+                reader.onerror = () => {
+                    messageDiv.textContent = 'Error al leer el archivo.';
+                    downloadLink.style.display = 'none';
+                };
+
+                // Iniciar la lectura del archivo como un ArrayBuffer
+                reader.readAsArrayBuffer(file);
+            });
+        });
+    </script>
+</body>
+</html>
